@@ -1,9 +1,9 @@
 {
-  "name": "uufinds-scraper",
+  "name": "uufinds-clean",
   "version": "1.0.0",
   "main": "index.js",
   "type": "commonjs",
   "dependencies": {
-    "cheerio": "^1.0.0"
+    "cheerio": "1.0.0"
   }
 }
