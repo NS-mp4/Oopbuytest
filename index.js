@@ -1,64 +1,64 @@
+const https = require("https");
 const cheerio = require("cheerio");
 
-const URLS = [
-  "https://www.uufinds.com/goodItemDetail/qc/1969159446778699777"
-];
-
-async function scrapeUUFinds(url) {
-  try {
-    console.log("⏳ Lecture :", url);
-
-    const res = await fetch(url, {
+// Simple GET via node HTTPS (ne déclenche JAMAIS undici)
+function get(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, {
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "fr-FR,fr;q=0.9"
+        "Accept-Language": "fr-FR"
       }
-    });
+    }, res => {
+      let data = "";
+      res.on("data", chunk => data += chunk);
+      res.on("end", () => resolve(data));
+    }).on("error", reject);
+  });
+}
 
-    if (!res.ok) {
-      console.log("❌ Erreur HTTP :", res.status);
-      return null;
-    }
+async function scrapeUUFinds(url) {
+  console.log("⏳ Lecture :", url);
 
-    const html = await res.text();
+  try {
+    const html = await get(url);
+
     const $ = cheerio.load(html);
 
-    const scriptData = $("script#__NEXT_DATA__").html();
-    if (!scriptData) {
-      console.log("❌ JSON introuvable sur la page");
+    const nextData = $("script#__NEXT_DATA__").html();
+    if (!nextData) {
+      console.log("❌ Impossible de trouver __NEXT_DATA__");
       return null;
     }
 
-    const data = JSON.parse(scriptData);
-    const product = data?.props?.pageProps?.goodItemDetail;
+    const json = JSON.parse(nextData);
+    const item = json?.props?.pageProps?.goodItemDetail;
 
-    if (!product) {
-      console.log("❌ Pas de données produit");
+    if (!item) {
+      console.log("❌ Structure vide");
       return null;
     }
 
     return {
-      title: product.title,
-      price: product.price,
-      sold: product.soldQuantity,
-      shop: product.userName,
-      images: product.mainPicUrls || []
+      title: item.title,
+      price: item.price,
+      images: item.mainPicUrls || []
     };
-  } catch (err) {
-    console.log("❌ Erreur scraper :", err.message);
+
+  } catch (e) {
+    console.log("❌ Erreur scrape :", e.message);
     return null;
   }
 }
 
 (async () => {
-  for (const url of URLS) {
-    const info = await scrapeUUFinds(url);
+  const URL = "https://www.uufinds.com/goodItemDetail/qc/1969159446778699777";
+  const result = await scrapeUUFinds(URL);
 
-    if (!info) {
-      console.log("❌ Échec :", url);
-    } else {
-      console.log("\n✅ Produit trouvé :");
-      console.log(info);
-    }
+  if (!result) {
+    console.log("❌ Aucun produit trouvé.");
+  } else {
+    console.log("✅ Produit trouvé :");
+    console.log(result);
   }
 })();
