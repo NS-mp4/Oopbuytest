@@ -1,64 +1,78 @@
 const https = require("https");
 const cheerio = require("cheerio");
 
-// Simple GET via node HTTPS (ne déclenche JAMAIS undici)
 function get(url) {
   return new Promise((resolve, reject) => {
     https.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "fr-FR"
-      }
+      headers: { "User-Agent": "Mozilla/5.0" }
     }, res => {
       let data = "";
-      res.on("data", chunk => data += chunk);
+      res.on("data", c => data += c);
       res.on("end", () => resolve(data));
     }).on("error", reject);
   });
 }
 
-async function scrapeUUFinds(url) {
-  console.log("⏳ Lecture :", url);
+// 1) Récupérer le BUILD_ID de UUFinds
+async function getBuildID() {
+  console.log("⏳ Récupération du BUILD_ID...");
+
+  const js = await get("https://www.uufinds.com/_next/static/buildManifest.js");
+
+  const match = js.match(/"buildId":"([^"]+)"/);
+  if (!match) {
+    console.log("❌ Impossible de trouver le BUILD_ID");
+    return null;
+  }
+
+  const buildId = match[1];
+  console.log("✅ BUILD_ID :", buildId);
+  return buildId;
+}
+
+// 2) Charger l’API JSON directe de UUFinds
+async function getItem(buildId, productId) {
+  const apiURL = `https://www.uufinds.com/_next/data/${buildId}/goodItemDetail/qc/${productId}.json`;
+
+  console.log("⏳ Appel API :", apiURL);
 
   try {
-    const html = await get(url);
+    const jsonText = await get(apiURL);
+    const json = JSON.parse(jsonText);
 
-    const $ = cheerio.load(html);
-
-    const nextData = $("script#__NEXT_DATA__").html();
-    if (!nextData) {
-      console.log("❌ Impossible de trouver __NEXT_DATA__");
-      return null;
-    }
-
-    const json = JSON.parse(nextData);
-    const item = json?.props?.pageProps?.goodItemDetail;
-
+    const item = json?.pageProps?.goodItemDetail;
     if (!item) {
-      console.log("❌ Structure vide");
+      console.log("❌ Objet produit introuvable");
       return null;
     }
 
     return {
       title: item.title,
       price: item.price,
-      images: item.mainPicUrls || []
+      images: item.mainPicUrls,
+      sold: item.soldQuantity,
+      shop: item.userName
     };
 
   } catch (e) {
-    console.log("❌ Erreur scrape :", e.message);
+    console.log("❌ Erreur API :", e.message);
     return null;
   }
 }
 
+// --- MAIN ---
 (async () => {
-  const URL = "https://www.uufinds.com/goodItemDetail/qc/1969159446778699777";
-  const result = await scrapeUUFinds(URL);
+  const productId = "1969159446778699777";
 
-  if (!result) {
+  const buildId = await getBuildID();
+  if (!buildId) return;
+
+  const product = await getItem(buildId, productId);
+
+  if (!product) {
     console.log("❌ Aucun produit trouvé.");
   } else {
     console.log("✅ Produit trouvé :");
-    console.log(result);
+    console.log(product);
   }
 })();
