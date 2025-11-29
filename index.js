@@ -1,32 +1,67 @@
-import fetch from "node-fetch";
+const fetch = require("node-fetch");
+const cheerio = require("cheerio");
 
-const ids = process.env.ITEM_IDS.split(",");
+// LISTE DES LIENS UUFIND À SCRAPER
+const URLS = [
+  "https://www.uufinds.com/goodItemDetail/qc/1969159446778699777"
+];
 
-async function scrapeTaobao(id) {
+// Extraction UUFinds
+async function scrapeUUFinds(url) {
   try {
-    const url = `https://api.allorigins.win/raw?url=https://item.taobao.com/item.htm?id=${id}`;
-    const res = await fetch(url);
-    const html = await res.text();
+    console.log("⏳ Lecture :", url);
 
-    if (!html || html.length < 5000) {
-      console.log(`❌ Produit vide ou protégé : ${id}`);
-      return;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "fr-FR,fr;q=0.9"
+      }
+    });
+
+    if (!res.ok) {
+      console.log("❌ Erreur HTTP :", res.status);
+      return null;
     }
 
-    // Extraction simple du titre
-    const titleMatch = html.match(/<title>(.*?)<\/title>/i);
-    const title = titleMatch ? titleMatch[1] : "Titre introuvable";
+    const html = await res.text();
+    const $ = cheerio.load(html);
 
-    console.log(`✅ ${id} → ${title}`);
+    const scriptData = $("script#__NEXT_DATA__").html();
+    if (!scriptData) {
+      console.log("❌ JSON introuvable sur la page");
+      return null;
+    }
+
+    const data = JSON.parse(scriptData);
+    const product = data?.props?.pageProps?.goodItemDetail;
+
+    if (!product) {
+      console.log("❌ Pas de données produit");
+      return null;
+    }
+
+    return {
+      title: product.title,
+      price: product.price,
+      sold: product.soldQuantity,
+      shop: product.userName,
+      images: product.mainPicUrls || []
+    };
   } catch (err) {
-    console.log(`❌ Erreur pour ${id} : ${err.message}`);
+    console.log("❌ Erreur scraper :", err);
+    return null;
   }
 }
 
-async function start() {
-  for (const id of ids) {
-    await scrapeTaobao(id);
-  }
-}
+(async () => {
+  for (const url of URLS) {
+    const info = await scrapeUUFinds(url);
 
-start();
+    if (!info) {
+      console.log("❌ Échec :", url);
+    } else {
+      console.log("\n✅ Produit trouvé :");
+      console.log(info);
+    }
+  }
+})();
