@@ -1,0 +1,13 @@
+{
+  "name": "oopbuy-deals-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "form-data": "^4.0.0",
+    "node-fetch": "^2.6.7",
+    "playwright": "^1.50.0"
+  }
+}
