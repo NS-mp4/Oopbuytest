@@ -1,63 +1,40 @@
 const https = require("https");
-const cheerio = require("cheerio");
 
-function proxiedGet(url) {
+function apiGet(url) {
   return new Promise((resolve, reject) => {
-    const proxyURL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
-
-    https.get(proxyURL, res => {
+    https.get(url, res => {
       let data = "";
-      res.on("data", c => data += c);
+      res.on("data", chunk => data += chunk);
       res.on("end", () => resolve(data));
     }).on("error", reject);
   });
 }
 
-// 1) BuildID via proxy
-async function getBuildID() {
-  console.log("⏳ Lecture HTML UUFinds via proxy…");
+async function getUUFindsItem(id) {
+  const apiURL = `https://qc.uufinds.com/web/goodItemDetail/getDetail?goodId=${id}`;
 
-  const html = await proxiedGet("https://www.uufinds.com");
-
-  const $ = cheerio.load(html);
-  let buildId = null;
-
-  $("link[rel='preload']").each((i, el) => {
-    const href = $(el).attr("href");
-    if (href && href.includes("_buildManifest.js")) {
-      const parts = href.split("/");
-      if (parts.length >= 4) buildId = parts[3];
-    }
-  });
-
-  if (buildId) {
-    console.log("✅ BUILD_ID trouvé :", buildId);
-    return buildId;
-  } else {
-    console.log("❌ BUILD_ID introuvable (même via proxy)");
-    return null;
-  }
-}
-
-// 2) Charger JSON via proxy
-async function getItem(buildId, productId) {
-  const apiURL = `https://www.uufinds.com/_next/data/${buildId}/goodItemDetail/qc/${productId}.json`;
-
-  console.log("⏳ Appel API via proxy :", apiURL);
+  console.log("⏳ Appel API directe :", apiURL);
 
   try {
-    const jsonText = await proxiedGet(apiURL);
-    const json = JSON.parse(jsonText);
+    const raw = await apiGet(apiURL);
+    const json = JSON.parse(raw);
 
-    const item = json?.pageProps?.goodItemDetail;
-    if (!item) return null;
+    if (!json?.data) {
+      console.log("❌ Pas de data UUFinds");
+      return null;
+    }
+
+    const d = json.data;
 
     return {
-      title: item.title,
-      price: item.price,
-      images: item.mainPicUrls,
-      sold: item.soldQuantity,
-      shop: item.userName
+      id: id,
+      title: d.title,
+      price: d.price,
+      images: d.imgList,
+      sold: d.sales,
+      shopName: d.shopName,
+      originalId: d.itemId,
+      platform: d.platformName
     };
 
   } catch (e) {
@@ -66,19 +43,15 @@ async function getItem(buildId, productId) {
   }
 }
 
-// MAIN
 (async () => {
-  const PRODUCT_ID = "1969159446778699777";
+  const PRODUCT = "1969159446778699777"; // ton ID
 
-  const buildId = await getBuildID();
-  if (!buildId) return;
+  const item = await getUUFindsItem(PRODUCT);
 
-  const product = await getItem(buildId, PRODUCT_ID);
-
-  if (!product) {
-    console.log("❌ Aucun produit trouvé.");
+  if (!item) {
+    console.log("❌ Impossible de lire le produit");
   } else {
-    console.log("🎉 Produit trouvé !");
-    console.log(product);
+    console.log("🎉 Produit récupéré avec succès !");
+    console.log(item);
   }
 })();
