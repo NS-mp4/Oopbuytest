@@ -1,6 +1,10 @@
 {
-  "type": "module",
+  "name": "uufinds-scraper",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "commonjs",
   "dependencies": {
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^2.6.9",
+    "cheerio": "^1.0.0"
   }
 }
