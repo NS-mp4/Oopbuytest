@@ -1,28 +1,21 @@
-name: BesFinds BOT
+name: Oopbuy
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 * * * *" # toutes les heures
 
 jobs:
   run:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - run: npm install
+      - run: npm install node-fetch
 
-      - run: node index.js
+      - name: Run script
+        run: node index.js
         env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
-          REF_ID: ${{ secrets.REF_ID }}
           ITEM_IDS: ${{ secrets.ITEM_IDS }}
-          SHEET_WEBHOOK: ${{ secrets.SHEET_WEBHOOK }}
