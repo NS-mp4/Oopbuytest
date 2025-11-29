@@ -1,68 +1,32 @@
 import fetch from "node-fetch";
 
-// --- ENV secrets ---
-const TOKEN = process.env.TELEGRAM_TOKEN;
-const CHAT = process.env.TELEGRAM_CHAT;
-const REF = process.env.REF_ID;
-const SHEET = process.env.SHEET_WEBHOOK;
-const IDS = process.env.ITEM_IDS.split(",");
+const ids = process.env.ITEM_IDS.split(",");
 
-// --- Scrape Oopbuy HTML ---
-async function getOopbuy(id) {
-  const url = `https://www.oopbuy.com/products/${id}`;
+async function scrapeTaobao(id) {
+  try {
+    const url = `https://api.allorigins.win/raw?url=https://item.taobao.com/item.htm?id=${id}`;
+    const res = await fetch(url);
+    const html = await res.text();
 
-  const html = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0",
-      "Accept": "text/html"
+    if (!html || html.length < 5000) {
+      console.log(`❌ Produit vide ou protégé : ${id}`);
+      return;
     }
-  }).then(r => r.text());
 
-  const title = (html.match(/<h1[^>]*>(.*?)<\/h1>/) || [])[1];
-  const price = (html.match(/"value":"(\d+(\.\d+)?)"/) || [])[1];
-  const image = (html.match(/<img[^>]+src="(https:\/\/[^"]+)"/) || [])[1];
+    // Extraction simple du titre
+    const titleMatch = html.match(/<title>(.*?)<\/title>/i);
+    const title = titleMatch ? titleMatch[1] : "Titre introuvable";
 
-  return { id, title, price, image, link: url + `?ref=${REF}` };
-}
-
-// --- Send to Telegram ---
-async function sendTelegram(item) {
-  await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
-    method: "POST",
-    body: new URLSearchParams({
-      chat_id: CHAT,
-      photo: item.image,
-      caption: `🔥 *${item.title}*\n\n💰 Prix : *${item.price} CNY*\n\n👉 ${item.link}`,
-      parse_mode: "Markdown"
-    })
-  });
-}
-
-// --- Send to Sheet ---
-async function sendSheet(item) {
-  if (!SHEET) return;
-  await fetch(SHEET, {
-    method: "POST",
-    body: JSON.stringify(item),
-    headers: { "Content-Type": "application/json" }
-  });
-}
-
-// --- Main ---
-(async () => {
-  for (const id of IDS) {
-    try {
-      const item = await getOopbuy(id.trim());
-      if (!item.title) {
-        console.log("❌ Impossible de scraper :", id);
-        continue;
-      }
-
-      console.log("📤 Posting:", item.title);
-      await sendTelegram(item);
-      await sendSheet(item);
-    } catch (e) {
-      console.log("Erreur sur", id, e.toString());
-    }
+    console.log(`✅ ${id} → ${title}`);
+  } catch (err) {
+    console.log(`❌ Erreur pour ${id} : ${err.message}`);
   }
-})();
+}
+
+async function start() {
+  for (const id of ids) {
+    await scrapeTaobao(id);
+  }
+}
+
+start();
