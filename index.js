@@ -1,12 +1,9 @@
-const fetch = require("node-fetch");
 const cheerio = require("cheerio");
 
-// LISTE DES LIENS UUFIND À SCRAPER
 const URLS = [
   "https://www.uufinds.com/goodItemDetail/qc/1969159446778699777"
 ];
 
-// Extraction UUFinds
 async function scrapeUUFinds(url) {
   try {
     console.log("⏳ Lecture :", url);
@@ -48,7 +45,7 @@ async function scrapeUUFinds(url) {
       images: product.mainPicUrls || []
     };
   } catch (err) {
-    console.log("❌ Erreur scraper :", err);
+    console.log("❌ Erreur scraper :", err.message);
     return null;
   }
 }
